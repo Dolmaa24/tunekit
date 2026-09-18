@@ -1,0 +1,20 @@
+# Llama 3.2 3B with QLoRA (4-bit base). ~6 GB VRAM: free Colab T4 / any 8 GB+ NVIDIA card.
+# Requires: pip install 'tunekit[quant]'  and accepting the Llama license on the Hub.
+model:
+  name: meta-llama/Llama-3.2-3B-Instruct
+  load_in_4bit: true
+data:
+  path: data/train.jsonl
+  max_length: 2048
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+train:
+  output_dir: outputs/llama-3.2-3b
+  epochs: 1
+  batch_size: 2
+  grad_accum: 8
+  lr: 2.0e-4
+  optimizer: paged_adamw_8bit
+  gradient_checkpointing: true

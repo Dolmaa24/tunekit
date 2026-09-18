@@ -1,0 +1,21 @@
+# Qwen2.5 7B with QLoRA. ~12 GB VRAM: Colab L4/A100, RTX 3090/4090, etc.
+model:
+  name: Qwen/Qwen2.5-7B-Instruct
+  load_in_4bit: true
+  attn_implementation: sdpa
+data:
+  path: data/train.jsonl
+  max_length: 4096
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+train:
+  output_dir: outputs/qwen2.5-7b
+  epochs: 1
+  batch_size: 1
+  grad_accum: 16
+  lr: 1.0e-4
+  optimizer: paged_adamw_8bit
+  gradient_checkpointing: true
+  report_to: [tensorboard]

@@ -1,0 +1,15 @@
+# Train straight from a Hugging Face Hub dataset (no local file needed).
+# yahma/alpaca-cleaned is in alpaca format; tunekit converts it automatically.
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+data:
+  path: yahma/alpaca-cleaned
+  split: train
+  max_samples: 5000          # remove to use all ~52k rows
+  max_length: 1024
+  system_prompt: "You are a helpful assistant."
+train:
+  output_dir: outputs/alpaca-qwen-0.5b
+  epochs: 1
+  batch_size: 4
+  grad_accum: 4

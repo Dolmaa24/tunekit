@@ -1,0 +1,13 @@
+# Smallest possible run: proves the pipeline works on any hardware (CPU, Mac, GPU) in ~1 minute.
+model:
+  name: HuggingFaceTB/SmolLM2-135M-Instruct
+data:
+  path: examples/pirate.jsonl
+  max_length: 256
+train:
+  output_dir: outputs/smoke
+  epochs: 3
+  batch_size: 4
+  grad_accum: 2
+  gradient_checkpointing: false
+  logging_steps: 5

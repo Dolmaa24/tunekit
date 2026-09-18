@@ -1,0 +1,16 @@
+# Qwen2.5 0.5B, plain LoRA in bf16. Fits on a free Colab T4 (~4 GB VRAM) at this batch size.
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+data:
+  path: data/train.jsonl
+  max_length: 2048
+  eval_fraction: 0.02
+lora:
+  r: 16
+  alpha: 32
+train:
+  output_dir: outputs/qwen2.5-0.5b
+  epochs: 2
+  batch_size: 4
+  grad_accum: 4
+  lr: 2.0e-4
