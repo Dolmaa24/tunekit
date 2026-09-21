@@ -41,8 +41,14 @@ def merge(
     return out
 
 
-def find_llama_cpp_converter(explicit: str | None = None) -> Path:
-    """Locate llama.cpp's convert_hf_to_gguf.py."""
+def find_llama_cpp_converter(explicit: str | None = None) -> tuple[Path, str]:
+    """Locate llama.cpp's convert_hf_to_gguf.py and the interpreter to run it with.
+
+    Prefers a ``.venv`` inside the llama.cpp checkout if one exists (for people who installed
+    the converter's pinned requirements there); otherwise the current interpreter, which works
+    with tunekit's own transformers/torch as long as ``sentencepiece`` and ``protobuf<5`` are
+    installed (``pip install 'tunekit[gguf]'``).
+    """
     candidates: list[Path] = []
     if explicit:
         p = Path(explicit).expanduser()
@@ -55,11 +61,13 @@ def find_llama_cpp_converter(explicit: str | None = None) -> Path:
     ]
     for c in candidates:
         if c.is_file():
-            return c
+            venv_py = c.parent / ".venv" / "bin" / "python"
+            return c, (str(venv_py) if venv_py.exists() else sys.executable)
     raise FileNotFoundError(
         "Could not find llama.cpp's convert_hf_to_gguf.py. Either:\n"
-        "  git clone https://github.com/ggml-org/llama.cpp ~/llama.cpp && pip install -r ~/llama.cpp/requirements.txt\n"
-        "  or pass --llama-cpp /path/to/llama.cpp, or set LLAMA_CPP_DIR."
+        "  git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp\n"
+        "  pip install 'tunekit[gguf]'\n"
+        "or pass --llama-cpp /path/to/llama.cpp, or set LLAMA_CPP_DIR."
     )
 
 
@@ -71,7 +79,7 @@ def to_gguf(
     ``quant`` is one of the converter's --outtype values: f32, f16, bf16, q8_0, tq1_0, tq2_0, auto.
     For smaller quants (q4_k_m etc.) run llama.cpp's ``llama-quantize`` on the q8_0/f16 output.
     """
-    converter = find_llama_cpp_converter(llama_cpp)
+    converter, python = find_llama_cpp_converter(llama_cpp)
     model_dir_p = Path(model_dir)
     if is_adapter_dir(model_dir_p):
         raise RuntimeError("Merge the adapter first: tunekit merge <adapter> <merged-dir>")

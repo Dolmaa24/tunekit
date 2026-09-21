@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Weekly run against the latest upstream releases (there is no lockfile),
+    # so an API rename in a dependency shows up here before a user hits it.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 jobs:
   test:

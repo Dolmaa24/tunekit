@@ -44,6 +44,8 @@ wandb = ["wandb"]
 tensorboard = ["tensorboard"]
 # Pushing to / pulling from the Hugging Face Hub.
 hub = ["huggingface_hub>=0.24"]
+# What llama.cpp's convert_hf_to_gguf.py needs beyond tunekit's own stack (for `tunekit export`).
+gguf = ["sentencepiece>=0.1.98,<0.3", "protobuf>=4.21,<5"]
 dev = ["pytest>=8", "ruff>=0.6", "pytest-cov"]
 
 [project.scripts]

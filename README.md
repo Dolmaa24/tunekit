@@ -22,6 +22,7 @@ Fine-tuning a 7B model with QLoRA is ~150 lines of code that everybody rewrites,
 - **`tunekit validate`** before you burn GPU hours — shows the exact rendered text the model will see, token-length percentiles, and how many rows will be truncated.
 - **LoRA or QLoRA** (4-bit / 8-bit) from a single flag; sensible defaults for rank, alpha, scheduler, checkpointing.
 - **Reproducible runs** — every output dir gets the resolved config (`tunekit.yaml`), metrics (`tunekit.json`) and a model card.
+- **`tunekit eval`** answers "did it help?" — held-out loss and perplexity on the assistant turns, tuned vs base, with sample generations side by side.
 - **Ships to where models are used** — `tunekit merge` → `tunekit export --ollama` gives you a GGUF and an Ollama `Modelfile`.
 - **Works everywhere the stack works** — CUDA (single or multi-GPU via `accelerate launch`), Apple Silicon (MPS, no quantisation), or CPU for smoke tests.
 
@@ -55,7 +56,10 @@ tunekit train --model Qwen/Qwen2.5-0.5B-Instruct --data examples/pirate.jsonl --
 # 4. talk to it
 tunekit chat outputs/pirate
 
-# 5. ship it
+# 5. did it help? held-out loss + samples, tuned vs base (writes outputs/pirate/eval.json)
+tunekit eval outputs/pirate
+
+# 6. ship it
 tunekit merge outputs/pirate outputs/pirate-merged
 tunekit export outputs/pirate-merged --quant q8_0 --ollama     # needs a llama.cpp checkout, see below
 ```
@@ -158,13 +162,15 @@ hub:
 
 | command | what it does |
 |---|---|
-| `tunekit info [run_dir]` | detected hardware, bitsandbytes availability; or a finished run's metrics |
+| `tunekit info [run_dir] [--model X]` | detected hardware; whether model X's weights fit the GPU; or a finished run's metrics |
 | `tunekit init [path]` | write a commented starter config |
 | `tunekit validate` | detect/convert the dataset, token-length stats, rendered examples |
 | `tunekit train` | fine-tune; `--dry-run` loads data + model and exits |
 | `tunekit chat <path>` | interactive chat with an adapter dir, merged dir, or Hub id |
+| `tunekit eval <path>` | held-out loss / perplexity + sample generations, tuned vs base; data taken from the run's `tunekit.yaml` unless `--data` is given |
 | `tunekit merge <adapter> <out>` | fold the LoRA weights into the base model |
 | `tunekit export <merged> [--ollama]` | GGUF via llama.cpp, plus an Ollama Modelfile |
+| `tunekit push <dir> <repo_id>` | upload a run directory to the Hugging Face Hub |
 
 `tunekit --help` and `tunekit <command> --help` list every flag.
 
@@ -186,12 +192,14 @@ Rules of thumb: QLoRA memory ≈ 0.7 GB per billion params + activations; halve 
 
 ```bash
 git clone --depth 1 https://github.com/ggml-org/llama.cpp ~/llama.cpp
-pip install -r ~/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt
+pip install "tunekit[gguf]"                              # sentencepiece + protobuf, all the converter needs beyond tunekit's stack
 tunekit export outputs/merged --quant q8_0 --ollama      # finds ~/llama.cpp automatically
 ollama create my-model -f outputs/merged/Modelfile && ollama run my-model
 ```
 
-For 4-bit GGUFs, run `llama-quantize` from llama.cpp on the q8_0 file.
+Don't install llama.cpp's own `requirements-convert_hf_to_gguf.txt` into the same environment: it pins older `transformers`/`torch` and would downgrade tunekit's. If you prefer their pinned versions, put them in a venv *inside* the checkout (`~/llama.cpp/.venv`) and tunekit will use that interpreter automatically.
+
+For 4-bit GGUFs, run `llama-quantize` from llama.cpp on the q8_0 file. This path was verified end-to-end (train → merge → export → `ollama run`) with SmolLM2-135M.
 
 ## Python API
 
@@ -215,6 +223,8 @@ print("".join(stream_reply(model, tok, [{"role": "user", "content": "hello"}])))
 **`CUDA out of memory`.** In order: `load_in_4bit: true` → lower `data.max_length` → `batch_size: 1` with higher `grad_accum` → `optimizer: paged_adamw_8bit`.
 
 **The model rambles / never stops.** The base model's chat template and EOS handling matter; use the `-Instruct` variant of the model, and check your assistant turns don't end with trailing junk.
+
+**How do I know it actually helped?** `tunekit eval outputs/run` scores the held-out split with the tuned and base model and prints both, plus sample generations. Lower loss on assistant turns *and* better-looking samples is the signal; lower loss with worse samples usually means overfitting.
 
 **Where's DPO / RLHF?** Not yet — see [CONTRIBUTING.md](CONTRIBUTING.md) for the roadmap.
 

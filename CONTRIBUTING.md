@@ -45,11 +45,11 @@ tests/          unit tests (offline) + one integration test
 
 ## Roadmap (help wanted)
 
-- [ ] `tunekit eval` — perplexity on a held-out set + a few sampled generations, before vs after
+- [x] `tunekit eval` — held-out loss / perplexity + sample generations, tuned vs base
 - [ ] Preference tuning (DPO/ORPO) via TRL's `DPOTrainer`, reusing the data layer
 - [ ] Vision-language models
-- [ ] `tunekit push` as a standalone command (currently `hub.push` in the config)
-- [ ] Auto-suggest `batch_size` / `max_length` from detected VRAM
+- [x] `tunekit push` as a standalone command
+- [ ] Auto-suggest `batch_size` / `max_length` from detected VRAM (`tunekit info --model` already reports whether the base weights fit; the activation side needs measurements from real GPUs — please open an issue with yours)
 
 ## Style
 

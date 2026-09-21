@@ -1,0 +1,15 @@
+# Changelog
+
+Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
+
+## [0.1.0] - Unreleased
+
+First release.
+
+- `tunekit init / validate / train / eval / chat / merge / export / push / info`.
+- YAML run config with `--set section.key=value` overrides (pydantic schema).
+- Dataset auto-detection and conversion: `messages`, alpaca, ShareGPT, prompt/completion, text; from `.jsonl`/`.json`/`.csv`/`.parquet`, a directory, or a Hub dataset id.
+- LoRA and QLoRA (4-bit / 8-bit via bitsandbytes) through TRL's `SFTTrainer`.
+- `eval`: held-out loss / perplexity on the final assistant turn (or completion), sample generations, tuned vs base.
+- GGUF export via llama.cpp's converter plus an Ollama Modelfile; verified end-to-end through `ollama run`.
+- Example configs, Colab notebook, unit + integration tests, CI (push, PR, weekly against latest deps), Dependabot, pre-commit.

@@ -222,11 +222,103 @@ def export(
 
 
 @app.command()
+def eval(  # noqa: A001 - typer command name
+    path: Annotated[
+        str, typer.Argument(help="Adapter dir from `tunekit train`, merged dir, or Hub id")
+    ],
+    data: Annotated[
+        str | None,
+        typer.Option(
+            "--data", "-d", help="Dataset path or Hub id (default: the run's tunekit.yaml data)"
+        ),
+    ] = None,
+    config: Annotated[
+        Path | None, typer.Option("--config", "-c", help="Run config to take data settings from")
+    ] = None,
+    overrides: SetOpt = None,
+    compare_base: Annotated[
+        bool,
+        typer.Option("--compare-base/--no-compare-base", help="Also score the untuned base model"),
+    ] = True,
+    samples: Annotated[int, typer.Option(help="Sample generations to show")] = 3,
+    max_examples: Annotated[int, typer.Option(help="Cap on examples scored")] = 100,
+    max_new_tokens: Annotated[int, typer.Option(help="Tokens per sample generation")] = 128,
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Where to write eval.json (default: <path>/eval.json)"),
+    ] = None,
+) -> None:
+    """Held-out loss / perplexity and sample generations, tuned vs base."""
+    from .data import DataError
+    from .eval import print_result, run_eval, save_result
+
+    run_yaml = Path(path) / "tunekit.yaml"
+    if config is None and data is None and run_yaml.exists():
+        config = run_yaml
+    if config is None and data is None:
+        raise typer.BadParameter(
+            "Pass --data, or --config, or a run directory containing tunekit.yaml."
+        )
+    cfg = _load_config(config, "unused" if config is None else None, data, None, overrides)
+    try:
+        result = run_eval(
+            path,
+            cfg.data,
+            compare_base=compare_base,
+            n_samples=samples,
+            max_examples=max_examples,
+            max_new_tokens=max_new_tokens,
+        )
+    except DataError as e:
+        console.print(f"[red]data error:[/] {e}")
+        raise typer.Exit(1) from None
+    print_result(result)
+    out = output or (Path(path) / "eval.json" if Path(path).is_dir() else Path("eval.json"))
+    save_result(result, out)
+    console.print(f"[dim]written to {out}[/]")
+
+
+@app.command()
+def push(
+    path: Annotated[str, typer.Argument(help="Adapter or merged model directory")],
+    repo_id: Annotated[str, typer.Argument(help="Hub repo, e.g. your-username/my-finetune")],
+    private: Annotated[bool, typer.Option("--private/--public")] = True,
+    message: Annotated[str, typer.Option("--message", "-m")] = "Upload from tunekit",
+) -> None:
+    """Upload a run directory to the Hugging Face Hub (needs `huggingface-cli login` or HF_TOKEN)."""
+    from huggingface_hub import HfApi
+    from huggingface_hub.errors import HfHubHTTPError
+
+    src = Path(path)
+    if not src.is_dir():
+        console.print(f"[red]{src} is not a directory[/]")
+        raise typer.Exit(1)
+    api = HfApi()
+    try:
+        api.create_repo(repo_id, private=private, exist_ok=True)
+        url = api.upload_folder(
+            folder_path=str(src),
+            repo_id=repo_id,
+            commit_message=message,
+            ignore_patterns=["checkpoint-*", "runs/*", "wandb/*"],
+        )
+    except HfHubHTTPError as e:
+        console.print(f"[red]hub error:[/] {e}")
+        console.print("Log in with:  huggingface-cli login   (or set HF_TOKEN)")
+        raise typer.Exit(1) from None
+    console.print(f"[green]uploaded[/] {src} -> https://huggingface.co/{repo_id}  [dim]{url}[/]")
+
+
+@app.command()
 def info(
     path: Annotated[str | None, typer.Argument(help="A run output directory to summarise")] = None,
+    model: Annotated[
+        str | None,
+        typer.Option("--model", "-m", help="Check whether a model's weights fit this GPU"),
+    ] = None,
 ) -> None:
-    """Show detected hardware, or summarise a finished run."""
-    from .model import bitsandbytes_available, detect_hardware
+    """Show detected hardware, whether a model fits it, or summarise a finished run."""
+    from .model import bitsandbytes_available, detect_hardware, hub_weight_bytes
 
     hw = detect_hardware()
     console.print(f"tunekit {__version__}")
@@ -234,6 +326,30 @@ def info(
     console.print(
         f"bitsandbytes (QLoRA): {'available' if bitsandbytes_available() else 'not installed'}"
     )
+    if model:
+        size = hub_weight_bytes(model)
+        if size is None:
+            console.print(
+                f"[yellow]could not read weight sizes for {model} (offline, gated, or not a model repo)[/]"
+            )
+        else:
+            gb = size / 1e9
+            console.print(f"{model}: {gb:.1f} GB of weights on disk")
+            console.print(
+                f"  resident base weights: bf16 ~{gb:.1f} GB | 8-bit ~{gb * 0.55:.1f} GB | 4-bit ~{gb * 0.30:.1f} GB  "
+                "[dim](LoRA params, optimizer state and activations come on top)[/]"
+            )
+            if hw.vram_gb:
+                for label, ratio in (("bf16", 1.0), ("8-bit", 0.55), ("4-bit", 0.30)):
+                    need = gb * ratio
+                    ok = (
+                        "fits"
+                        if need < hw.vram_gb * 0.8
+                        else "tight"
+                        if need < hw.vram_gb
+                        else "no"
+                    )
+                    console.print(f"  {label:>5}: {ok}")
     if path:
         meta_path = Path(path) / "tunekit.json"
         if not meta_path.exists():

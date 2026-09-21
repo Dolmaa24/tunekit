@@ -99,6 +99,19 @@ def run(cfg: RunConfig, dry_run: bool = False) -> Path:
             f"{cfg.model.name} has no chat template but the data is conversational. "
             "Pick an instruct/chat variant of the model or set model.chat_template."
         )
+    from .model import resolve_dtype, weight_fit_report
+
+    report = weight_fit_report(
+        cfg.model.name,
+        hw,
+        cfg.model.load_in_4bit,
+        cfg.model.load_in_8bit,
+        resolve_dtype(cfg.model, hw),
+    )
+    if report:
+        console.print(
+            ("[red]" if "NOT" in report else "[yellow]" if "tight" in report else "") + report
+        )
     model, dtype = load_model(cfg.model, hw)
     quantised = cfg.model.load_in_4bit or cfg.model.load_in_8bit
     model = apply_lora(model, cfg.lora, quantised, cfg.train.gradient_checkpointing)

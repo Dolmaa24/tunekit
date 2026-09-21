@@ -153,6 +153,75 @@ def apply_lora(
     return get_peft_model(model, lora)
 
 
+def hub_weight_bytes(name: str) -> int | None:
+    """Total size of a model's safetensors/bin weights: a local directory's files, or the Hub's
+    file metadata for a repo id. None when it cannot be determined (offline, gated, no weights)."""
+    from pathlib import Path
+
+    p = Path(name).expanduser()
+    if p.is_dir():
+        files = list(p.glob("*.safetensors")) + list(p.glob("*.bin"))
+        return sum(f.stat().st_size for f in files) or None
+    try:
+        from huggingface_hub import HfApi
+
+        info = HfApi().model_info(name, files_metadata=True)
+    except Exception:  # noqa: BLE001 - offline, gated, or not a repo id
+        return None
+    total = sum(
+        (s.size or 0)
+        for s in (info.siblings or [])
+        if s.rfilename.endswith((".safetensors", ".bin"))
+        and not s.rfilename.startswith("optimizer")
+    )
+    return total or None
+
+
+# Bytes per parameter actually resident on the GPU for the base weights, relative to the
+# on-disk bf16/fp16 checkpoint (2 bytes/param). 4-bit NF4 keeps norms/embeddings in higher
+# precision, so it is nearer 0.55 bytes/param than 0.5; these are ratios of the checkpoint size.
+_RESIDENT_RATIO = {"bf16": 1.0, "fp16": 1.0, "fp32": 2.0, "8bit": 0.55, "4bit": 0.30}
+
+
+def weight_fit_report(
+    name: str, hw: Hardware, load_in_4bit: bool, load_in_8bit: bool, dtype: torch.dtype
+) -> str | None:
+    """One line saying whether the base weights alone fit in VRAM, or None if unknowable.
+
+    This is a floor: LoRA parameters, optimizer state and activations come on top. A model whose
+    weights alone exceed VRAM cannot be trained in that mode, whatever the batch size.
+    """
+    if hw.device != "cuda" or hw.vram_gb is None:
+        return None
+    size = hub_weight_bytes(name)
+    if size is None:
+        return None
+    if load_in_4bit:
+        mode, ratio = "4-bit", _RESIDENT_RATIO["4bit"]
+    elif load_in_8bit:
+        mode, ratio = "8-bit", _RESIDENT_RATIO["8bit"]
+    elif dtype == torch.float32:
+        mode, ratio = "fp32", _RESIDENT_RATIO["fp32"]
+    else:
+        mode, ratio = "bf16/fp16", 1.0
+    resident = size * ratio / 1e9
+    disk = size / 1e9
+    verdict = (
+        "fits"
+        if resident < hw.vram_gb * 0.8
+        else "tight"
+        if resident < hw.vram_gb
+        else "does NOT fit"
+    )
+    hint = ""
+    if verdict == "does NOT fit" and not load_in_4bit:
+        hint = "  -> set model.load_in_4bit: true"
+    return (
+        f"weights: {disk:.1f} GB on disk, ~{resident:.1f} GB resident in {mode} vs {hw.vram_gb:.0f} GB VRAM: "
+        f"{verdict} (before activations){hint}"
+    )
+
+
 def trainable_summary(model: PreTrainedModel) -> tuple[int, int]:
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total = sum(p.numel() for p in model.parameters())
