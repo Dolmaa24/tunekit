@@ -7,6 +7,10 @@ updates:
     groups:
       python-deps:
         patterns: ["*"]
+    ignore:
+      # llama.cpp's convert_hf_to_gguf.py requires protobuf<5; a major bump breaks GGUF export.
+      - dependency-name: protobuf
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
