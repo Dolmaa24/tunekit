@@ -61,3 +61,14 @@ tests/          unit tests (offline) + one integration test
 ## Pull requests
 
 Small and focused beats big and sweeping. Describe *what* and *why*; if it changes behaviour, update the README. One approval and green CI is enough to merge.
+
+## Releasing
+
+Publishing uses PyPI Trusted Publishing (OIDC) from `.github/workflows/release.yml` — there is no
+API token anywhere. To cut a release:
+
+1. Bump `version` in `pyproject.toml` and add a dated section to `CHANGELOG.md`.
+2. `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin main --tags`
+3. The Release workflow builds, runs `twine check`, and uploads to PyPI.
+
+`workflow_dispatch` also runs it manually from the Actions tab.
