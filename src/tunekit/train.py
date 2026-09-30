@@ -9,6 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+import torch
 from rich.console import Console
 
 from . import __version__
@@ -155,8 +156,13 @@ def run(cfg: RunConfig, dry_run: bool = False) -> Path:
         eval_dataset=data.eval,
         processing_class=tokenizer,
     )
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
     resume = cfg.train.resume_from_checkpoint or None
     result = trainer.train(resume_from_checkpoint=resume)
+    peak_vram_gb = (
+        round(torch.cuda.max_memory_reserved() / 1e9, 2) if torch.cuda.is_available() else None
+    )
 
     # -- save ----------------------------------------------------------------
     trainer.save_model(str(out_dir))  # adapter (or full model when lora.enabled=false)
@@ -172,6 +178,7 @@ def run(cfg: RunConfig, dry_run: bool = False) -> Path:
         "train_examples": len(data.train),
         "eval_examples": n_eval,
         "hardware": asdict(hw),
+        "peak_vram_gb": peak_vram_gb,
         "metrics": metrics,
         "wall_time_s": round(time.time() - t0, 1),
     }
@@ -183,6 +190,7 @@ def run(cfg: RunConfig, dry_run: bool = False) -> Path:
     console.print(
         f"[green]done[/] in {meta['wall_time_s']}s  train_loss={loss:.4f}"
         + (f"  eval_loss={eval_loss:.4f}" if eval_loss is not None else "")
+        + (f"  peak_vram={peak_vram_gb} GB" if peak_vram_gb else "")
     )
     console.print(f"saved to [bold]{out_dir}[/]   try it:  tunekit chat {out_dir}")
 
