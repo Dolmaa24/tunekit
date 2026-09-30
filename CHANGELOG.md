@@ -2,7 +2,7 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-09-30
 
 First release.
 

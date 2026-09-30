@@ -28,12 +28,6 @@ Fine-tuning a 7B model with QLoRA is ~150 lines of code that everybody rewrites,
 
 ## Install
 
-> **Not on PyPI yet.** `pip install tunekit` starts working when v0.1.0 is published. Until then install from GitHub:
-> ```bash
-> pip install "tunekit @ git+https://github.com/Dolmaa24/tunekit"
-> ```
-
-
 ```bash
 pip install tunekit                # LoRA
 pip install "tunekit[quant]"       # + bitsandbytes for QLoRA (Linux + NVIDIA)
