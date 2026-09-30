@@ -109,6 +109,7 @@ def run_eval(
     n_samples: int = 3,
     max_examples: int = 100,
     max_new_tokens: int = 128,
+    load_in_4bit: bool = False,
 ) -> EvalResult:
     t0 = time.time()
     nd = prepare(data_cfg)
@@ -117,7 +118,7 @@ def run_eval(
     which = "eval split" if rows_ds is nd.eval else "train split (no eval split available)"
     console.print(f"scoring {len(rows)} examples from the {which}  [dim]({nd.kind})[/]")
 
-    model, tok = load_for_inference(path)
+    model, tok = load_for_inference(path, load_in_4bit=load_in_4bit)
     tuned_loss, n_tok = nll_over_rows(model, tok, rows, nd.kind, data_cfg.max_length)
     samples: list[dict[str, str]] = []
     for row in rows[:n_samples]:
@@ -147,7 +148,7 @@ def run_eval(
         del model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        base, btok = load_for_inference(base_name)
+        base, btok = load_for_inference(base_name, load_in_4bit=load_in_4bit)
         base_loss, _ = nll_over_rows(base, btok, rows, nd.kind, data_cfg.max_length)
         result.base_loss = round(base_loss, 4)
         result.base_ppl = round(math.exp(base_loss), 3)

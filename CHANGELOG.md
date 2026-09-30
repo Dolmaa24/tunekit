@@ -17,4 +17,7 @@ local data file reported a Hub error instead of "no such file"; the README confi
 - `eval`: held-out loss / perplexity on the final assistant turn (or completion), sample generations, tuned vs base.
 - GGUF export via llama.cpp's converter plus an Ollama Modelfile; verified end-to-end through `ollama run`.
 - Colab notebook that trains in 4-bit (QLoRA) by default, evaluates tuned vs base, and exports to GGUF.
+- `chat` and `eval` take `--load-in-4bit`, so a QLoRA adapter can be used on the GPU that trained it
+  (the base would otherwise load in full precision, ~3x the memory).
+- A clear error when peft refuses to load because of an outdated torchao in the environment.
 - Example configs, unit + integration tests, CI (push, PR, weekly against latest deps), Dependabot, pre-commit.

@@ -26,24 +26,60 @@ def base_model_of(adapter_dir: str | Path) -> str:
     return base
 
 
+def _quantization_kwargs(dtype: torch.dtype) -> dict[str, Any]:
+    from transformers import BitsAndBytesConfig
+
+    return {
+        "quantization_config": BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=dtype,
+        ),
+        "device_map": "auto",
+    }
+
+
 def load_for_inference(
-    path: str, base: str | None = None, dtype: torch.dtype | None = None
+    path: str,
+    base: str | None = None,
+    dtype: torch.dtype | None = None,
+    load_in_4bit: bool = False,
 ) -> tuple[Any, Any]:
-    """Load either a merged model dir / Hub id, or an adapter dir (base is read from adapter_config)."""
+    """Load a merged model dir / Hub id, or an adapter dir (base is read from adapter_config).
+
+    ``load_in_4bit`` reloads the base model quantised, which is what you want for an adapter
+    trained with QLoRA: the full-precision base of a 7B model needs ~15 GB, while the 4-bit
+    base it was trained against needs ~5 GB and fits the same GPU.
+    """
     hw = detect_hardware()
     dtype = dtype or (torch.bfloat16 if hw.bf16 else torch.float32)
     device = hw.device if hw.device != "cpu" else None
+    quant = _quantization_kwargs(dtype) if load_in_4bit else {}
+    if quant:
+        device = None  # device_map="auto" already places the weights
 
     if is_adapter_dir(path):
         from peft import PeftModel
 
         base = base or base_model_of(path)
         tok = AutoTokenizer.from_pretrained(path)  # tunekit saves the tokenizer next to the adapter
-        model = AutoModelForCausalLM.from_pretrained(base, dtype=dtype)
-        model = PeftModel.from_pretrained(model, path)
+        model = AutoModelForCausalLM.from_pretrained(base, dtype=dtype, **quant)
+        try:
+            model = PeftModel.from_pretrained(model, path)
+        except ImportError as e:  # peft rejects an outdated optional integration
+            if "torchao" in str(e):
+                raise RuntimeError(
+                    f"peft refused to load because of an incompatible torchao in this environment.\n"
+                    f"  {e}\n"
+                    "tunekit does not use torchao. Remove it (`pip uninstall -y torchao`) or upgrade it "
+                    "(`pip install -U torchao`), then retry. Colab preinstalls an old torchao, which is "
+                    "the usual cause."
+                ) from e
+            raise
     else:
         tok = AutoTokenizer.from_pretrained(path)
-        model = AutoModelForCausalLM.from_pretrained(path, dtype=dtype)
+        model = AutoModelForCausalLM.from_pretrained(path, dtype=dtype, **quant)
     if device:
         model.to(device)
     model.eval()
@@ -78,13 +114,17 @@ def stream_reply(
 
 
 def chat_loop(
-    path: str, system: str | None = None, max_new_tokens: int = 512, temperature: float = 0.7
+    path: str,
+    system: str | None = None,
+    max_new_tokens: int = 512,
+    temperature: float = 0.7,
+    load_in_4bit: bool = False,
 ) -> None:
     from rich.console import Console
 
     console = Console()
     console.print(f"[dim]loading {path} ...[/]")
-    model, tok = load_for_inference(path)
+    model, tok = load_for_inference(path, load_in_4bit=load_in_4bit)
     console.print("[green]ready[/]. Type a message; /reset clears history, /quit exits.\n")
     history: list[dict[str, str]] = [{"role": "system", "content": system}] if system else []
     while True:

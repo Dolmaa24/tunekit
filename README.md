@@ -230,6 +230,15 @@ print("".join(stream_reply(model, tok, [{"role": "user", "content": "hello"}])))
 
 **`CUDA out of memory`.** In order: `load_in_4bit: true` → lower `data.max_length` → `batch_size: 1` with higher `grad_accum` → `optimizer: paged_adamw_8bit`.
 
+**`ImportError: Found an incompatible version of torchao`** when loading an adapter. peft rejects an
+outdated torchao that some environments (Colab especially) preinstall. tunekit doesn't use torchao:
+`pip uninstall -y torchao`, or `pip install -U torchao`. Note this only bites at *load* time — 4-bit
+training returns before peft reaches that check, so a run can train fine and then fail at `chat`.
+
+**A QLoRA adapter won't fit at inference.** `tunekit chat` and `tunekit eval` load the base model in
+full precision by default. Pass `--load-in-4bit` to reload it quantised, the way it was trained —
+otherwise a 7B QLoRA adapter needs ~15 GB instead of ~5 GB.
+
 **The model rambles / never stops.** The base model's chat template and EOS handling matter; use the `-Instruct` variant of the model, and check your assistant turns don't end with trailing junk.
 
 **How do I know it actually helped?** `tunekit eval outputs/run` scores the held-out split with the tuned and base model and prints both, plus sample generations. Lower loss on assistant turns *and* better-looking samples is the signal; lower loss with worse samples usually means overfitting.

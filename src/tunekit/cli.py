@@ -172,11 +172,21 @@ def chat(
     system: Annotated[str | None, typer.Option("--system", help="System prompt")] = None,
     max_new_tokens: Annotated[int, typer.Option(help="Max tokens per reply")] = 512,
     temperature: Annotated[float, typer.Option(help="0 = greedy")] = 0.7,
+    load_in_4bit: Annotated[
+        bool,
+        typer.Option("--load-in-4bit", help="Load the base model in 4-bit (for QLoRA adapters)"),
+    ] = False,
 ) -> None:
     """Chat interactively with a fine-tuned model."""
     from .inference import chat_loop
 
-    chat_loop(path, system=system, max_new_tokens=max_new_tokens, temperature=temperature)
+    chat_loop(
+        path,
+        system=system,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        load_in_4bit=load_in_4bit,
+    )
 
 
 @app.command()
@@ -247,6 +257,10 @@ def eval(  # noqa: A001 - typer command name
         Path | None,
         typer.Option("--output", "-o", help="Where to write eval.json (default: <path>/eval.json)"),
     ] = None,
+    load_in_4bit: Annotated[
+        bool,
+        typer.Option("--load-in-4bit", help="Load base models in 4-bit (for QLoRA adapters)"),
+    ] = False,
 ) -> None:
     """Held-out loss / perplexity and sample generations, tuned vs base."""
     from .data import DataError
@@ -268,6 +282,7 @@ def eval(  # noqa: A001 - typer command name
             n_samples=samples,
             max_examples=max_examples,
             max_new_tokens=max_new_tokens,
+            load_in_4bit=load_in_4bit,
         )
     except DataError as e:
         console.print(f"[red]data error:[/] {e}")
