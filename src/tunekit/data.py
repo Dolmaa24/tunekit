@@ -86,6 +86,12 @@ def load_raw(path: str, split: str = "train", subset: str | None = None) -> Data
                 f"Directory {p} mixes file types {sorted(kinds)}; keep one type per directory."
             )
         ds = load_dataset(kinds.pop(), data_files=[str(f) for f in files], split="train")
+    elif p.suffix.lower() in SUPPORTED_EXTENSIONS:
+        # It names a data file, so it was meant to be local: don't confuse the user with a Hub error.
+        raise DataError(
+            f"No such file: {p}\n"
+            f"  (a data.path ending in {p.suffix} is treated as a local file, not a Hub dataset id)"
+        )
     else:
         try:
             ds = load_dataset(path, subset, split=split)

@@ -6,6 +6,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow 
 
 First release.
 
+Pre-release polish (30 Sep 2026): verified from a fresh clone — clean install, full test suite, every documented
+command, the built wheel outside its source tree, and the whole quickstart end to end. Fixed along the way: a missing
+local data file reported a Hub error instead of "no such file"; the README config reference was missing a few real keys.
+
 - `tunekit init / validate / train / eval / chat / merge / export / push / info`.
 - YAML run config with `--set section.key=value` overrides (pydantic schema).
 - Dataset auto-detection and conversion: `messages`, alpaca, ShareGPT, prompt/completion, text; from `.jsonl`/`.json`/`.csv`/`.parquet`, a directory, or a Hub dataset id.

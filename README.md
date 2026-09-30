@@ -28,6 +28,12 @@ Fine-tuning a 7B model with QLoRA is ~150 lines of code that everybody rewrites,
 
 ## Install
 
+> **Not on PyPI yet.** `pip install tunekit` starts working when v0.1.0 is published. Until then install from GitHub:
+> ```bash
+> pip install "tunekit @ git+https://github.com/Dolmaa24/tunekit"
+> ```
+
+
 ```bash
 pip install tunekit                # LoRA
 pip install "tunekit[quant]"       # + bitsandbytes for QLoRA (Linux + NVIDIA)
@@ -107,17 +113,22 @@ model:
   dtype: auto                # auto | bfloat16 | float16 | float32
   attn_implementation: null  # flash_attention_2 | sdpa | eager
   trust_remote_code: false
+  chat_template: null        # override the tokenizer's Jinja chat template (rarely needed)
 
 data:
   path: data/train.jsonl     # file, directory, or Hub id
   format: auto               # auto | messages | alpaca | sharegpt | prompt_completion | text
   split: train               # Hub datasets only
+  subset: null               # Hub dataset config/subset name
   eval_path: null
   eval_fraction: 0.02
   max_samples: null
   system_prompt: null
   max_length: 2048
   shuffle_seed: 42
+  text_field: text           # column names, when auto-detection can't find them
+  prompt_field: prompt
+  completion_field: completion
 
 lora:
   enabled: true              # false = full fine-tune
@@ -139,6 +150,7 @@ train:
   scheduler: cosine
   warmup_ratio: 0.03
   weight_decay: 0.0
+  max_grad_norm: 1.0
   optimizer: adamw_torch     # paged_adamw_8bit is a good QLoRA choice
   gradient_checkpointing: true
   packing: false
@@ -149,6 +161,8 @@ train:
   save_total_limit: 2
   seed: 42
   report_to: [none]          # [wandb] | [tensorboard]
+  run_name: null             # defaults to the output_dir's name
+  dataloader_num_workers: 0
   resume_from_checkpoint: false
   extra: {}                  # passed straight to TRL's SFTConfig
 

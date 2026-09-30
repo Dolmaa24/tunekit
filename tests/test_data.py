@@ -205,3 +205,14 @@ def test_prepare_max_samples(tmp_path):
     _write_jsonl(p, [{"text": f"t{i}"} for i in range(50)])
     nd = prepare(DataConfig(path=str(p), max_samples=7, eval_fraction=0))
     assert len(nd.train) == 7
+
+
+def test_missing_local_file_says_so_not_a_hub_error():
+    with pytest.raises(DataError, match="No such file"):
+        load_raw("data/train.jsonl")
+
+
+def test_repo_id_shaped_path_still_tries_the_hub():
+    # No data-file extension, so it is treated as a Hub id and reports a Hub failure.
+    with pytest.raises(DataError, match="Could not load"):
+        load_raw("definitely-not/a-real-dataset-xyz")
