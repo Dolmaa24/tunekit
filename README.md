@@ -187,10 +187,13 @@ hub:
 | setup | what works |
 |---|---|
 | NVIDIA, ≥ 16 GB | everything; 7B QLoRA comfortably, 13B QLoRA with `batch_size: 1` |
-| NVIDIA, 8–12 GB (free Colab T4) | LoRA up to ~1.5B in bf16/fp16; QLoRA up to ~7B |
+| NVIDIA, 15 GB (free Colab T4) | **measured:** Qwen2.5-1.5B QLoRA at `batch_size: 4`, `max_length: 1024` peaks at **3.04 GB** and trains 12 steps in 139 s. QLoRA up to ~7B fits. |
 | multiple GPUs | `accelerate launch -m tunekit.cli train config.yaml` (data-parallel) |
 | Apple Silicon | LoRA on models that fit in unified memory; **no** 4-bit/8-bit (bitsandbytes is CUDA-only). For serious Mac training use [mlxtuner](https://github.com/Dolmaa24/mlxtuner) |
 | CPU | smoke tests only (`configs/quickstart-smoke.yaml`) |
+
+Every run records its own `peak_vram_gb` in `tunekit.json`, so you can check these claims on your
+own GPU (and please [open an issue](https://github.com/Dolmaa24/tunekit/issues) with the number).
 
 Rules of thumb: QLoRA memory ≈ 0.7 GB per billion params + activations; halve `max_length` or `batch_size` before touching LoRA rank; `lr: 2e-4` for LoRA, `1e-5`–`2e-5` for full fine-tunes.
 

@@ -4,7 +4,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow 
 
 ## [0.1.1] - 2026-10-01
 
-First QLoRA run on a real GPU (Colab T4, Qwen2.5-1.5B-Instruct 4-bit) surfaced these.
+First QLoRA run on a real GPU surfaced these. That run — Colab T4, Qwen2.5-1.5B-Instruct in 4-bit,
+`batch_size: 4`, `max_length: 1024` — peaked at **3.04 GB**, trained 12 steps in 139 s, and took the
+held-out split from perplexity 135.1 (base) to 9.79 (tuned).
 
 ### Added
 - `chat` and `eval` take `--load-in-4bit`, so a QLoRA adapter runs on the GPU that trained it.
@@ -12,6 +14,11 @@ First QLoRA run on a real GPU (Colab T4, Qwen2.5-1.5B-Instruct 4-bit) surfaced t
 - `peak_vram_gb` recorded in `tunekit.json` and printed when training finishes.
 - A clear error when peft refuses to load because the environment has an outdated `torchao`
   (Colab preinstalls one). It only bites at adapter-load time, never during 4-bit training.
+
+- `eval` says so when the held-out set is too small to mean anything (the Colab run scored 2
+  examples / 37 tokens and reported a confident-looking perplexity drop).
+- `pyproject` no longer carries its own version: hatch reads it from `__version__`, so the two
+  cannot drift (0.1.1 was briefly built with metadata saying 0.1.1 and a CLI saying 0.1.0).
 
 ### Fixed
 - A `data.path` naming a missing local file said the Hub couldn't find it; now it says

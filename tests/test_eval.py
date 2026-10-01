@@ -38,3 +38,39 @@ def test_prompt_and_reference():
         {"role": "user", "content": "p"}
     ]
     assert _prompt_messages({"text": "t"}, "text") is None
+
+
+def test_tiny_eval_set_is_flagged(capsys):
+    from tunekit.eval import EvalResult, print_result
+
+    r = EvalResult(
+        path="p",
+        base_model="b",
+        kind="messages",
+        examples=2,
+        scored_tokens=37,
+        tuned_loss=2.0,
+        tuned_ppl=7.4,
+        base_loss=4.9,
+        base_ppl=134.3,
+    )
+    print_result(r)
+    assert "too few" in capsys.readouterr().out
+
+
+def test_adequate_eval_set_is_not_flagged(capsys):
+    from tunekit.eval import EvalResult, print_result
+
+    r = EvalResult(
+        path="p",
+        base_model="b",
+        kind="messages",
+        examples=50,
+        scored_tokens=5000,
+        tuned_loss=2.0,
+        tuned_ppl=7.4,
+        base_loss=4.9,
+        base_ppl=134.3,
+    )
+    print_result(r)
+    assert "too few" not in capsys.readouterr().out

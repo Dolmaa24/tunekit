@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import yaml
 from pydantic import ValidationError
@@ -50,3 +52,20 @@ def test_yaml_roundtrip(tmp_path):
     cfg = RunConfig.from_dict({"model": {"name": "m"}, "data": {"path": "d"}})
     cfg.to_yaml(tmp_path / "c.yaml")
     assert RunConfig.from_yaml(tmp_path / "c.yaml") == cfg
+
+
+def test_version_is_single_sourced():
+    """pyproject must not carry its own version: hatch reads it from tunekit.__version__.
+
+    Two literals drift — a release once shipped metadata saying 0.1.1 while the CLI said 0.1.0.
+    """
+    import tomllib
+
+    raw = tomllib.loads((Path(__file__).resolve().parent.parent / "pyproject.toml").read_text())
+    assert "version" in raw["project"].get("dynamic", []), (
+        "pyproject should declare a dynamic version"
+    )
+    assert "version" not in raw["project"], (
+        "pyproject has a static version; it would drift from __version__"
+    )
+    assert raw["tool"]["hatch"]["version"]["path"] == "src/tunekit/__init__.py"

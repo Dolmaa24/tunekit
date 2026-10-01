@@ -27,6 +27,10 @@ from .inference import base_model_of, is_adapter_dir, load_for_inference, stream
 
 console = Console()
 
+# Below this, the comparison is noise rather than signal; say so instead of implying precision.
+MIN_MEANINGFUL_EXAMPLES = 10
+MIN_MEANINGFUL_TOKENS = 500
+
 
 def _split_prompt(tok: Any, row: dict[str, Any], kind: str) -> tuple[str, str]:
     """Return (prompt_text, full_text) so that loss is taken on full_text[len(prompt_text):]."""
@@ -177,6 +181,12 @@ def print_result(r: EvalResult) -> None:
         delta = r.base_loss - r.tuned_loss
         verdict = "[green]lower[/]" if delta > 0 else "[red]higher[/]"
         console.print(f"tuned loss is {verdict} than base by {abs(delta):.4f} nats/token")
+    if r.examples < MIN_MEANINGFUL_EXAMPLES or r.scored_tokens < MIN_MEANINGFUL_TOKENS:
+        console.print(
+            f"[yellow]caution:[/] only {r.examples} example(s) and {r.scored_tokens} scored tokens \u2014 "
+            "too few to read much into these numbers. Raise data.eval_fraction, or point --data at a "
+            "larger held-out file."
+        )
     for i, s in enumerate(r.samples):
         console.rule(f"[dim]sample {i}")
         _labelled("bold cyan", "prompt", s["prompt"])
