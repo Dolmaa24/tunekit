@@ -2,6 +2,27 @@
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.1.1] - 2026-10-01
+
+First QLoRA run on a real GPU (Colab T4, Qwen2.5-1.5B-Instruct 4-bit) surfaced these.
+
+### Added
+- `chat` and `eval` take `--load-in-4bit`, so a QLoRA adapter runs on the GPU that trained it.
+  Without it the base reloads in full precision: ~15 GB for a 7B adapter instead of ~5 GB.
+- `peak_vram_gb` recorded in `tunekit.json` and printed when training finishes.
+- A clear error when peft refuses to load because the environment has an outdated `torchao`
+  (Colab preinstalls one). It only bites at adapter-load time, never during 4-bit training.
+
+### Fixed
+- A `data.path` naming a missing local file said the Hub couldn't find it; now it says
+  `No such file`.
+
+### Docs
+- Colab notebook trains in 4-bit by default (it previously demonstrated plain bf16 LoRA, so the
+  QLoRA path it existed to validate was never exercised), no longer blocks on `files.upload()`,
+  and installs `tunekit[gguf]` rather than llama.cpp's pins, which downgrade transformers/torch.
+- README config reference completed against the schema.
+
 ## [0.1.0] - 2026-09-30
 
 First release.
